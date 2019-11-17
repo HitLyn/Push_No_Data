@@ -1,0 +1,2 @@
+model_checkpoint_path: "60_steps"
+all_model_checkpoint_paths: "60_steps"
