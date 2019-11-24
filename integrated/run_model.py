@@ -1,14 +1,14 @@
-from mppi import MPPI
+from mppi_test import MPPI
 import numpy as np
 import os
 import gym
 
 
 
-ENV = 'FetchPush-mppi'
-TIMESTEPS = 20
-N_SAMPLES = 1000
-EPISODE = 10
+ENV = 'FetchPush-v4'
+TIMESTEPS = 10
+N_SAMPLES = 400
+EPISODE = 5
 
 
 
