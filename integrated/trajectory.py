@@ -20,6 +20,14 @@ def robot_pos_from_world_to_relative(object_pos, robot_pos):
 
     return np.array([robot_position_relative_to_object_x, robot_position_relative_to_object_y])
 
+def robot_action_from_world_to_object(action, object_pos):
+    action_x = action[0]
+    action_y = action[1]
+    theta = object_pos[2]
+    action_relative_to_object_x = action_x*np.cos(theta) + action_y*np.sin(theta)
+    action_relative_to_object_y = action_y*np.cos(theta) - action_x*np.sin(theta)
+    return np.array([action_relative_to_object_x, action_relative_to_object_y])
+
 class Trajectory():
     """collect trajectory history and preprocess the data making it more suitable for the input of predictor"""
     def __init__(self, env):
@@ -27,6 +35,7 @@ class Trajectory():
         self.goal = np.zeros([7])
         self.obstacle_pos = np.zeros([3])
         self.relative_state = [] # list of numpy.array(delta_x,delta_y,delta_theta,x_robot, y_robot, action_x, action_y)
+        self.real_robot_action = [] # list of numpy.array(action_x_world, action_y_world)
         self.absolute_state = [] # list of numpy.array(x_object,y_object,theta_object,x_robot,y_robot)
         self.object_absolute_state = [] # list of numpy.array(pos_x, pos_y, theta)
         self.robot_absolute_state = [] # list of numpy.array(pos_x, pos_y)
@@ -58,9 +67,9 @@ class Trajectory():
         self.goal = np.zeros([7])
         self.obstacle_pos = np.zeros([3])
 
-    def update(self, obs):
+    def update_state(self, obs):
         self.goal = obs['desired_goal']
-        self.obstacle_pos = self.env.unwrapped.sim.data.get_site_xpos('obstacle')
+        # self.obstacle_pos = self.env.unwrapped.sim.data.get_site_xpos('obstacle')
         observation = obs['observation']
         robot_pos = observation[:2] # absolute
         object_pos = observation[6:13] # absolute
@@ -79,7 +88,14 @@ class Trajectory():
         self.relative_state.append(np.concatenate([object_vel, robot_pos_relative, robot_action_relative]))
 
         # update absolute state
-        self.absolute_state.append(np.concatenate([self.object_absolute_state[self.count], self.robot_absolute_state[self.count]]))
+        self.absolute_state.append(np.concatenate([self.object_absolute_state[-1], self.robot_absolute_state[-1]]))
 
         # update count
         self.count += 1
+
+    def update_action(self, action):
+        """update the real robot action list both in"""
+        self.real_robot_action.append(action)
+        object_pos = self.object_absolute_state[self.count - 1]
+        action_relative_to_object = robot_action_from_world_to_object(action, object_pos)
+        self.relative_state[self.count - 1][5:] = action_relative_to_object

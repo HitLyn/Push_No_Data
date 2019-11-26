@@ -2,19 +2,14 @@ import numpy as np
 import os
 import sys
 
-BASE_DIR=(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(BASE_DIR)
-
-from data_train.model_5 import Model
-
-WEIGHTS_PATH = '/home/lyn/HitLyn/Push/saved_model/epoch150/60_steps'
 
 
 class Predictor():
-    def __init__(self, c_o, c_g, c_d, time_steps):
+    def __init__(self, model, c_o, c_g, c_d, time_steps):
         self.T = time_steps # time_steps to predict
-        self.model = Model(3, 2, 100, 64, 64, 10, load_data = False)
-        self.model.load_weights(WEIGHTS_PATH)
+        # self.model = Model(3, 2, 100, 64, 64, 10, load_data = False)
+        # self.model.load_weights(WEIGHTS_PATH)
+        self.model = model
         self.trajectory_length = self.model.env_time_step
         self.input_sequence_len = self.model.time_steps
         self.relative_state = np.zeros([self.trajectory_length + self.T, 7]) # all relative to object coordinate, (delta_x,delta_y,delta_theta,x_robot, y_robot, action_x, action_y)
@@ -56,14 +51,25 @@ class Predictor():
         # how many states it has predicted
         self.count = 0 #reset count
 
+    def get_relative_action(self, action):
+        object_pos = self.absolute_state[step + self.count][:3]
+        theta = object_pos[2]
+        action_x = action[0]
+        action_y = action[1]
+        action_relative_to_object_x = action_x*np.cos(theta) + action_y*np.sin(theta)
+        action_relative_to_object_y = action_y*np.cos(theta) - action_x*np.sin(theta)
+        return np.array([action_relative_to_object_x, action_relative_to_object_y])
 
     def predict(self, action, step):
-        # print('count', self.count)
+        """action: relative to world coordinate"""
         assert action.shape == (2,)
         input = np.zeros([self.input_sequence_len, 7])
 
+        # transfer the action to object coordinate
+        relative_action = self.get_relative_action(action)
+
         # update the action data for current state which is set as (0. , 0.)
-        self.relative_state[step + self.count][5:] = action[:]
+        self.relative_state[step + self.count][5:] = relative_action[:]
 
         # get input sequence for model, the model need self.input_sequence_len steps sequence as input
         for i in range(self.input_sequence_len):
@@ -104,8 +110,8 @@ class Predictor():
         object_position_ = object_position[:2]
         object_rotation_ = object_position[2]
 
-        # cost = c_o*np.squeeze(np.sum(np.square(object_position_ - obstacle_position))) + c_g*np.squeeze(np.sum(np.square(object_position - goal_position))) + c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
-        cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        cost = c_g*np.squeeze(np.sum(np.square(object_position - goal_position))) + c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        # cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
         return cost
 
 
@@ -145,6 +151,9 @@ class Predictor():
         theta_absolute = object_theta_original + increment_theta
 
         return np.array([x_absolute, y_absolute, theta_absolute])
+
+    def _get_obs(self):
+        return 0
 
 
 
