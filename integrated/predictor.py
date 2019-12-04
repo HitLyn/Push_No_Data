@@ -2,14 +2,17 @@ import numpy as np
 import os
 import sys
 
+BASE_DIR=(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(BASE_DIR)
 
-
+from data_train.model_5 import Model
+WEIGHTS_PATH = '/home/lyn/HitLyn/Push/saved_model/epoch150/60_steps'
 class Predictor():
-    def __init__(self, model, c_o, c_g, c_d, time_steps):
+    def __init__(self, c_o, c_g, c_d, time_steps):
         self.T = time_steps # time_steps to predict
-        # self.model = Model(3, 2, 100, 64, 64, 10, load_data = False)
-        # self.model.load_weights(WEIGHTS_PATH)
-        self.model = model
+        self.model = Model(3, 2, 100, 64, 64, 10, load_data = False)
+        self.model.load_weights(WEIGHTS_PATH)
+        # self.model = model
         self.trajectory_length = self.model.env_time_step
         self.input_sequence_len = self.model.time_steps
         self.relative_state = np.zeros([self.trajectory_length + self.T, 7]) # all relative to object coordinate, (delta_x,delta_y,delta_theta,x_robot, y_robot, action_x, action_y)
@@ -51,7 +54,7 @@ class Predictor():
         # how many states it has predicted
         self.count = 0 #reset count
 
-    def get_relative_action(self, action):
+    def get_relative_action(self, action, step):
         object_pos = self.absolute_state[step + self.count][:3]
         theta = object_pos[2]
         action_x = action[0]
@@ -63,12 +66,15 @@ class Predictor():
     def predict(self, action, step):
         """action: relative to world coordinate"""
         assert action.shape == (2,)
+        # print('action: ', action)
+        action = 0.05*np.clip(action, -1, 1)
         input = np.zeros([self.input_sequence_len, 7])
 
         # transfer the action to object coordinate
-        relative_action = self.get_relative_action(action)
+        relative_action = self.get_relative_action(action, step)
 
         # update the action data for current state which is set as (0. , 0.)
+        # print('predictor predict ', step)
         self.relative_state[step + self.count][5:] = relative_action[:]
 
         # get input sequence for model, the model need self.input_sequence_len steps sequence as input
@@ -81,8 +87,8 @@ class Predictor():
                 input[i] = self.relative_state[idx]
 
         input = input[np.newaxis, :]
-
         state_increment = self.model.predict(input) # [delta_x, delta_y, delta_theta]
+        # state_increment = np.zeros([3])
 
         # update self.relative_state and self.count
         self.relative_state[step + self.count + 1][:3] = state_increment[:]
@@ -91,8 +97,11 @@ class Predictor():
 
         # update self.absolute_state
         self.absolute_state[step + self.count + 1][:3] = self.get_prediction_absolute_position(state_increment, step)[:]
+        self.absolute_state[step + self.count + 1][3:] = self.absolute_state[step + self.count][3:] + action
 
         # compute the cost
+        # print('step: ', step)
+        # print('current robot pos: ', self.absolute_state[step][3:])
         cost = self.cost_fun(self.absolute_state[step + self.count + 1][:3], self.absolute_state[step + self.count + 1][3:], self.obstacle_position, self.goal_position)
 
         # update count
@@ -109,9 +118,13 @@ class Predictor():
         c_d = self.c_d
         object_position_ = object_position[:2]
         object_rotation_ = object_position[2]
+        fixed_pos = np.array([1.35, 0.65])
+        # print('current robot pos: ', robot_position)
 
-        cost = c_g*np.squeeze(np.sum(np.square(object_position - goal_position))) + c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
-        # cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        # cost = c_g*np.squeeze(np.sum(np.square(object_position - goal_position))) + c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        # cost = c_d*np.squeeze(np.sum(np.square(fixed_pos - robot_position)))
+        # print('distance: ', cost)
         return cost
 
 
