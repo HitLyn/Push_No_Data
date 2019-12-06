@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import sys
+import copy
 
 BASE_DIR=(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
@@ -17,6 +18,11 @@ class Predictor():
         self.input_sequence_len = self.model.time_steps
         self.relative_state = np.zeros([self.trajectory_length + self.T, 7]) # all relative to object coordinate, (delta_x,delta_y,delta_theta,x_robot, y_robot, action_x, action_y)
         self.absolute_state = np.zeros([self.trajectory_length + self.T, 5]) # all absolute positions (x_object,y_object,theta_object,x_robot,y_robot)
+
+        self.object_absolute_trajectory_imagine = []# the shooting trajectory
+        self.robot_absolute_trajectory_imagine = []
+
+
         self.obstacle_position = np.zeros([2]) # obstacle absolute position
         self.goal_position = np.zeros([3]) # goal_position and orientation absolute data(relative to world coordinate)
         self.count = 0 # reset to zero every catch_up, count how many states have been changed
@@ -51,11 +57,32 @@ class Predictor():
         self.goal_position[:] = goal_position[:]
         self.obstacle_position[:] = obstacle_position[:]
 
+        # for i in range(step + 1):
+        #     data = copy.copy(absolute_state[i][:3])
+        #     self.object_absolute_trajectory_imagine.append(data)
+        #     # try:
+        #     #     print(self.object_absolute_trajectory_imagine[2])
+        #     # except:
+        #     #     pass
+        #     # print(i)
+        #     # print('append: ', absolute_state[i][:3])
+        #     # print('object trajectory: ', self.object_absolute_trajectory_imagine)
+        #     self.robot_absolute_trajectory_imagine.append(absolute_state[i][3:])
+        #     # print('append: ', absolute_state[i][3:])
+        #     # print('robot trajectory: ', self.robot_absolute_trajectory_imagine)
+
+        object_data = copy.copy(absolute_state[-1][:3])
+        robot_data = copy.copy(absolute_state[-1][3:])
+        self.object_absolute_trajectory_imagine.append(object_data)
+        self.robot_absolute_trajectory_imagine.append(robot_data)
+        # self.object_absolute_trajectory_imagine.append(absolute_state[-1][:3])
+        # self.robot_absolute_trajectory_imagine.append(absolute_state[-1][3:])
+
         # how many states it has predicted
         self.count = 0 #reset count
 
     def get_relative_action(self, action, step):
-        object_pos = self.absolute_state[step + self.count][:3]
+        object_pos = copy.copy(self.absolute_state[step + self.count][:3])
         theta = object_pos[2]
         action_x = action[0]
         action_y = action[1]
@@ -67,11 +94,11 @@ class Predictor():
         """action: relative to world coordinate"""
         assert action.shape == (2,)
         # print('action: ', action)
-        action = 0.05*np.clip(action, -1, 1)
+        action_ = 0.02*np.clip(action, -1, 1)
         input = np.zeros([self.input_sequence_len, 7])
 
         # transfer the action to object coordinate
-        relative_action = self.get_relative_action(action, step)
+        relative_action = self.get_relative_action(action_, step)
 
         # update the action data for current state which is set as (0. , 0.)
         # print('predictor predict ', step)
@@ -82,9 +109,9 @@ class Predictor():
             idx = i + step + self.count + 1 - self.input_sequence_len
             if idx < 0:
                 input[i] = np.zeros([7])
-                input[i][3:5] = self.relative_state[0][3:5]
+                input[i][3:5] = copy.copy(self.relative_state[0][3:5])
             else:
-                input[i] = self.relative_state[idx]
+                input[i] = copy.copy(self.relative_state[idx])
 
         input = input[np.newaxis, :]
         state_increment = self.model.predict(input) # [delta_x, delta_y, delta_theta]
@@ -97,20 +124,34 @@ class Predictor():
 
         # update self.absolute_state
         self.absolute_state[step + self.count + 1][:3] = self.get_prediction_absolute_position(state_increment, step)[:]
-        self.absolute_state[step + self.count + 1][3:] = self.absolute_state[step + self.count][3:] + action
+        robot_absolute = copy.copy(self.absolute_state[step + self.count][3:])
+        self.absolute_state[step + self.count + 1][3:] = robot_absolute + action_
+        # print(self.absolute_state[step + self.count][:3])
+        # print(self.absolute_state[step + self.count + 1][:3])
+        # print(action_)
+
+        # update self.object_absolute_trajectory_imagine and self.robot_absolute_trajectory_imagine
+        object_data = copy.copy(self.absolute_state[step + self.count + 1][:3])
+        self.object_absolute_trajectory_imagine.append(object_data)
+        # self.object_absolute_trajectory_imagine.append(self.absolute_state[step + self.count + 1][:3])
+        # print('append: object', self.absolute_state[step + self.count + 1][:3])
+        # print('object trajectory: ', self.object_absolute_trajectory_imagine)
+        # print(step + self.count + 1)
+        robot_data = copy.copy(self.absolute_state[step + self.count + 1][3:])
+        self.robot_absolute_trajectory_imagine.append(robot_data)
+        # self.robot_absolute_trajectory_imagine.append(self.absolute_state[step + self.count + 1][3:])
+        # print('append: robot', self.absolute_state[step + self.count + 1][3:])
+        # print('robot trajectory: ', self.robot_absolute_trajectory_imagine)
 
         # compute the cost
         # print('step: ', step)
         # print('current robot pos: ', self.absolute_state[step][3:])
-        cost = self.cost_fun(self.absolute_state[step + self.count + 1][:3], self.absolute_state[step + self.count + 1][3:], self.obstacle_position, self.goal_position)
+        cost = self.cost_fun(object_data, robot_data, self.obstacle_position, self.goal_position)
 
         # update count
         self.count += 1
         return cost
 
-
-    def test(self):
-        self.model.model.summary()
 
     def cost_fun(self, object_position, robot_position, obstacle_position, goal_position):
         c_o = self.c_o
@@ -121,19 +162,19 @@ class Predictor():
         fixed_pos = np.array([1.35, 0.65])
         # print('current robot pos: ', robot_position)
 
-        cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
-        cost = c_g*np.squeeze(np.sum(np.square(object_position_ - goal_position[:2]))) + 0.3*c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
-        # cost = c_d*np.squeeze(np.sum(np.square(goal_position[:2] - robot_position)))
+        # cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        cost = c_g*np.squeeze(np.sum(np.square(object_position_ - goal_position[:2]))) + 0.5*c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        # cost = c_d*np.squeeze(np.sum(np.square(fixed_pos - robot_position)))
         # print('distance: ', cost)
         return cost
 
 
     def get_prediction_relative_position(self, state_increment, step):
         """robot position relative to object"""
-        x_original = self.relative_state[step + self.count][3]
-        y_original = self.relative_state[step + self.count][4]
-        action_x = self.relative_state[step + self.count][5]
-        action_y = self.relative_state[step + self.count][6]
+        x_original = copy.copy(self.relative_state[step + self.count][3])
+        y_original = copy.copy(self.relative_state[step + self.count][4])
+        action_x = copy.copy(self.relative_state[step + self.count][5])
+        action_y = copy.copy(self.relative_state[step + self.count][6])
 
         coordinate_increment_x = state_increment[0]
         coordinate_increment_y = state_increment[1]
@@ -148,9 +189,9 @@ class Predictor():
         return np.array([x_relative_update, y_relative_update])
 
     def get_prediction_absolute_position(self, state_increment, step):
-        object_x_original = self.absolute_state[step + self.count][0]
-        object_y_original = self.absolute_state[step + self.count][1]
-        object_theta_original = self.absolute_state[step + self.count][2]
+        object_x_original = copy.copy(self.absolute_state[step + self.count][0])
+        object_y_original = copy.copy(self.absolute_state[step + self.count][1])
+        object_theta_original = copy.copy(self.absolute_state[step + self.count][2])
 
         increment_x = state_increment[0]
         increment_y = state_increment[1]
@@ -167,6 +208,16 @@ class Predictor():
 
     def _get_obs(self):
         return 0
+
+    def get_imagine_trajectory(self):
+        object_traj = copy.copy(np.array(self.object_absolute_trajectory_imagine))
+        robot_traj = copy.copy(np.array(self.robot_absolute_trajectory_imagine))
+        # print(object_traj, robot_traj)
+        # for i in range(len(self.object_absolute_trajectory_imagine)):
+        #     # print('i', i)
+        #     print(self.object_absolute_trajectory_imagine[i])
+        #     # print(object_traj[i])
+        return object_traj, robot_traj
 
 
 

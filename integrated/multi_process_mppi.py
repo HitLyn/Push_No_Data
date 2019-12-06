@@ -1,6 +1,7 @@
 import numpy as np
 from predictor import Predictor
 from trajectory import Trajectory
+# import pickle
 
 import multiprocessing as mp
 import os
@@ -10,6 +11,8 @@ BASE_DIR=(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 
 from data_train.model_5 import Model
+# from model_test import Model
+
 
 WEIGHTS_PATH = '/home/lyn/HitLyn/Push/saved_model/epoch150/60_steps'
 
@@ -21,7 +24,7 @@ def compute_cost_parallel(predictor_args, initial_state, rollout_num_per_cpu, ba
         args_cpu = [predictor_args, initial_state, rollout_num_per_cpu, base_act, step]
         args_list.append(args_cpu)
 
-    results = _try_multiprocess(args_list, num_cpu, max_process_time = 30, max_timeout = 4)
+    results = _try_multiprocess(args_list, num_cpu, max_process_time = 300, max_timeout = 4)
     paths = []
     for result in results:
         for path in result:
@@ -35,15 +38,17 @@ def _try_multiprocess(args_list, num_cpu, max_process_time, max_timeout):
 
     pool = mp.Pool(processes=num_cpu, maxtasksperchild=1)
     parallel_runs = [pool.apply_async(cpu_compute_cost_, args = (args_list[i],)) for i in range(num_cpu)]
+    # print('apply_async')
+
     try:
         results = [p.get(timeout = max_process_time) for p in parallel_runs]
     except Exception as e:
-        print(str(e))
-        print("timeout error raised... Trying again")
+        print(str(e), '.....')
+        # print("timeout error raised... Trying again")
         pool.close()
         pool.terminate()
         pool.join()
-        return _try_multiprocess(args_list, num_cpu, max_process_time, max_timeout)
+        return _try_multiprocess(args_list, num_cpu, max_process_time, max_timeout - 1)
 
     pool.close()
     pool.terminate()
@@ -74,7 +79,9 @@ def generate_random_actions(base_act):
 
 def do_predictor_rollout(predictor_args, initial_state, act_list, noise_list, step):
     """act_list: list with num_rollout_per_cpu elements, each element is np.array with size (H, dim_u)"""
+    # print('begin rollout...')
     predictor = Predictor(*predictor_args)
+    print('predictor built successfully')
     paths = []
     N = len(act_list)
     H = act_list[0].shape[0]
@@ -158,6 +165,7 @@ class MPPI():
             self.trajectory.reset()
             self.trajectory.update_state(obs)
             self.U = np.zeros([self.T, self.dim_u])
+            # rollout_num_per_cpu = 1
             rollout_num_per_cpu = self.K//mp.cpu_count()
 
             for step in np.arange(self.time_limit):

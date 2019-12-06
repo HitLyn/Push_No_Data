@@ -4,8 +4,9 @@ import sys
 import gym
 
 class Predictor():
-    def __init__(self, c_o, c_g, c_d, time_steps):
-        self.env = gym.make('FetchPush-v4')
+    def __init__(self, env, c_o, c_g, c_d, time_steps):
+        self.env = gym.make('FetchPush-v5')
+        # self.env = env
         self.env.reset()
         self.T = time_steps # time_steps to predict
 
@@ -59,8 +60,8 @@ class Predictor():
         object_position_ = object_position[:2]
         object_rotation_ = object_position[2]
 
-        cost = c_g*np.squeeze(np.sum(np.square(object_position - goal_position))) + c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
-        # cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        # cost = c_g*np.squeeze(np.sum(np.square(object_position - goal_position))) + c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
+        cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
         return cost
 
     def _get_obs(self):

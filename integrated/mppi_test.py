@@ -34,7 +34,7 @@ def _try_multiprocess(args_list, num_cpu, max_process_time, max_timeout):
         pool.close()
         pool.terminate()
         pool.join()
-        return _try_multiprocess(args_list, num_cpu, max_process_time, max_timeout)
+        return _try_multiprocess(args_list, num_cpu, max_process_time, max_timeout - 1)
 
     pool.close()
     pool.terminate()
@@ -109,7 +109,7 @@ class MPPI():
         self.env = env
         self.T = T # time steps per sequence
 
-        self.predictor_args = [1, 1, 1, self.T]
+        self.predictor_args = [self.env, 1, 3, 1, self.T]
 
         self.trajectory = Trajectory(self.env)
         self.K = K # K sample action sequences
