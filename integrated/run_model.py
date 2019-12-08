@@ -6,9 +6,9 @@ import gym
 
 
 ENV = 'FetchPush-v5'
-TIMESTEPS = 8
+TIMESTEPS = 10
 N_SAMPLES = 80
-EPISODE = 5
+EPISODE = 50
 
 
 

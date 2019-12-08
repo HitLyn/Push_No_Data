@@ -75,10 +75,10 @@ class MPPI():
                 self.U[-1] = self.u_init
                 self.cost = np.zeros([self.K]) # reset cost
 
-        object_trajectory_imagine, robot_trajectory_imagine = self.predictor.get_imagine_trajectory()
-        # print(object_trajectory_imagine, robot_trajectory_imagine)
-        # for i in range(len(object_trajectory_imagine)):
-        #     print(object_trajectory_imagine[i])
-        # print(object_trajectory_imagine[i] for i in range(len(object_trajectory_imagine)))
-        np.save(os.path.join(SAVE_PATH, 'object'), object_trajectory_imagine)
-        np.save(os.path.join(SAVE_PATH, 'robot'), robot_trajectory_imagine)
+        # object_trajectory_imagine, robot_trajectory_imagine = self.predictor.get_imagine_trajectory()
+        # # print(object_trajectory_imagine, robot_trajectory_imagine)
+        # # for i in range(len(object_trajectory_imagine)):
+        # #     print(object_trajectory_imagine[i])
+        # # print(object_trajectory_imagine[i] for i in range(len(object_trajectory_imagine)))
+        # np.save(os.path.join(SAVE_PATH, 'object'), object_trajectory_imagine)
+        # np.save(os.path.join(SAVE_PATH, 'robot'), robot_trajectory_imagine)

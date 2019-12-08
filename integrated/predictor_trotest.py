@@ -73,8 +73,8 @@ class Predictor():
 
         object_data = copy.copy(absolute_state[-1][:3])
         robot_data = copy.copy(absolute_state[-1][3:])
-        self.object_absolute_trajectory_imagine.append(object_data)
-        self.robot_absolute_trajectory_imagine.append(robot_data)
+        # self.object_absolute_trajectory_imagine.append(object_data)
+        # self.robot_absolute_trajectory_imagine.append(robot_data)
         # self.object_absolute_trajectory_imagine.append(absolute_state[-1][:3])
         # self.robot_absolute_trajectory_imagine.append(absolute_state[-1][3:])
 
@@ -132,13 +132,13 @@ class Predictor():
 
         # update self.object_absolute_trajectory_imagine and self.robot_absolute_trajectory_imagine
         object_data = copy.copy(self.absolute_state[step + self.count + 1][:3])
-        self.object_absolute_trajectory_imagine.append(object_data)
+        # self.object_absolute_trajectory_imagine.append(object_data)
         # self.object_absolute_trajectory_imagine.append(self.absolute_state[step + self.count + 1][:3])
         # print('append: object', self.absolute_state[step + self.count + 1][:3])
         # print('object trajectory: ', self.object_absolute_trajectory_imagine)
         # print(step + self.count + 1)
         robot_data = copy.copy(self.absolute_state[step + self.count + 1][3:])
-        self.robot_absolute_trajectory_imagine.append(robot_data)
+        # self.robot_absolute_trajectory_imagine.append(robot_data)
         # self.robot_absolute_trajectory_imagine.append(self.absolute_state[step + self.count + 1][3:])
         # print('append: robot', self.absolute_state[step + self.count + 1][3:])
         # print('robot trajectory: ', self.robot_absolute_trajectory_imagine)
@@ -159,8 +159,18 @@ class Predictor():
         c_d = self.c_d
         object_position_ = object_position[:2]
         object_rotation_ = object_position[2]
-        fixed_pos = np.array([1.35, 0.65])
+        # fixed_pos = np.array([1.35, 0.65])
         # print('current robot pos: ', robot_position)
+        goal_rotation_ = goal_position[2]
+
+        delta_theta = np.abs(object_rotation_ - goal_rotation_)
+        while delta_theta >= np.pi/2:
+            delta_theta -= np.pi/2
+        #
+        # if np.sum(np.square(object_position_ - goal_position[:2])) < 0.025:
+        #     cost = c_d*np.squeeze(np.sum(np.square(object_position_ - goal_position[:2]))) + 2*c_d*np.square(delta_theta)
+        # else:
+        #     cost = c_g*np.squeeze(np.sum(np.square(object_position_ - goal_position[:2]))) + 0.5*c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
 
         # cost = c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
         cost = c_g*np.squeeze(np.sum(np.square(object_position_ - goal_position[:2]))) + 0.5*c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
