@@ -12,9 +12,10 @@ from trajectory import Trajectory
 from mppi import MPPI
 
 STEP_LIMIT = 100
-TIME_DURATION = 0.3
+TIME_DURATION = 0.5
 
 def get_object_tool_pose():
+    listener = tf.TransformListener()
     try:
         (trans_object,rot_object) = listener.lookupTransform('pushable_object_0', 'table_gym', rospy.Time(0))
         (trans_tool,rot_tool) = listener.lookupTransform('tool', 'table_gym', rospy.Time(0))
@@ -26,21 +27,33 @@ def get_object_tool_pose():
 
     return pose_object, pose_tool
 
-def push_distance(pub, vel_msg):
-    now = rospy.Time.now()
-    target_time = now + rospy.Duration(TIME_DURATION)
-    while(rospy.Time.now() < target_time):
-        pub.publish(vel_msg)
+# def push_distance(pub, vel_msg):
+#     now = rospy.Time.now()
+#     target_time = now + rospy.Duration(TIME_DURATION)
+#     while(rospy.Time.now() < target_time):
+#         pub.publish(vel_msg)
 
-def mppi_push(pos_x = 0.1, pos_y = 0.1, theta = 1):
+def push_distance(pub, vel_msg, pose_tool_, action):
+    action_distance = np.sqrt(np.square(action[0]) + np.square(action[1]))
+    pushing_distance = 0.0
+    rate = rospy.rate(10)
+    while(pushing_distance < action_distance):
+        pub.publish(vel_msg)
+        _, pose_tool = get_object_tool_pose()
+        pushing_distance = np.sqrt(np.square(pose_tool[0] - pose_tool_[0]) + np.square(pose_tool[1] - pose_tool_[1]))
+        rate.sleep()
+
+
+
+def mppi_push(pos_x = 0.2, pos_y = 0.2, theta = 1):
     # init
     rospy.init_node('mppi_push')
     # tf listener
-    listener = tf.TransformListener()
+    # listener = tf.TransformListener()
     # get pos information from environment
     pose_object, pose_tool = get_object_tool_pose() #np.array(7), np.array(2)
 
-    mppi = MPPI(40, 100)
+    mppi = MPPI(20, 3)
     mppi.trajectory_clear()
     mppi.U_reset()
     mppi.trajectory_update_state(pose_object, pose_tool)
@@ -55,11 +68,11 @@ def mppi_push(pos_x = 0.1, pos_y = 0.1, theta = 1):
         # pose_object, pose_tool = get_object_tool_pose()
         mppi.compute_cost(step)
         target_action = mppi.compute_noise_action() # 5 lines
-        target_action = 0.02*np.clip(target_action, -1, 1)
+        target_action = 0.03*np.clip(target_action, -1, 1)
         vel_msg = target_action/TIME_DURATION # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! need to be complete!!!!!!with clip
         # publish action through tool_velocity_control topic
         pose_tool_ = copy.copy(pose_tool)
-        push_distance(vel_pub, vel_msg)
+        push_distance(vel_pub, vel_msg, pose_tool_, target_action)
 
         pose_object, pose_tool = get_object_tool_pose()
         real_action = pose_tool - pose_tool_
