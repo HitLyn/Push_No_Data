@@ -44,6 +44,7 @@ class Trajectory():
         self.object_absolute_state = [] # list of numpy.array(pos_x, pos_y, theta)
         self.robot_absolute_state = [] # list of numpy.array(pos_x, pos_y)
         self.count = 0
+        self.reset()
 
 
     def get_relative_state(self):
