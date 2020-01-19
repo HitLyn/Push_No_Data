@@ -36,7 +36,7 @@ def robot_action_from_world_to_object(action, object_pos):
 class Trajectory():
     """collect trajectory history and preprocess the data making it more suitable for the input of predictor"""
     def __init__(self):
-        self.goal = np.zeros([7])
+        self.goal = np.zeros([3])
         self.obstacle_pos = np.zeros([3])
         self.relative_state = [] # list of numpy.array(delta_x,delta_y,delta_theta,x_robot, y_robot, action_x, action_y)
         self.real_robot_action = [] # list of numpy.array(action_x_world, action_y_world)
@@ -58,16 +58,30 @@ class Trajectory():
         obstacle_pos = copy.copy(self.obstacle_pos)
         return np.array([obstacle_pos[0], obstacle_pos[1]])
 
+    def get_goal_position(self):
+        return self.goal
+
+    def set_goal(self, pos_x, pos_y, theta):
+        self.goal[0] = pos_x
+        self.goal[1] = pos_y
+        self.goal[2] = theta
+
     def reset(self):
         # reset the count num
         self.count = 0
-        self.relative_state.clear()
-        self.absolute_state.clear()
-        self.object_absolute_state.clear()
-        self.robot_absolute_state.clear()
-        self.real_robot_action.clear()
+        # self.relative_state.clear()
+        # self.absolute_state.clear()
+        # self.object_absolute_state.clear()
+        # self.robot_absolute_state.clear()
+        # self.real_robot_action.clear()
 
-        self.goal = np.zeros([7])
+        del self.relative_state[:]
+        del self.absolute_state[:]
+        del self.object_absolute_state[:]
+        del self.robot_absolute_state[:]
+        del self.real_robot_action[:]
+
+        self.goal = np.zeros([3])
         self.obstacle_pos = np.zeros([3])
 
     def update_state(self, pose_object, pose_tool):

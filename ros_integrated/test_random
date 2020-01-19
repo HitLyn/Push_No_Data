@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+import rospy
+import geometry_msgs.msg
+import random
+
+rospy.init_node("publish_test_velocities", disable_signals=True)
+
+pub = rospy.Publisher("/dynamic_pushing/velocity", geometry_msgs.msg.Vector3, queue_size=10)
+
+v = geometry_msgs.msg.Vector3()
+
+while True:
+
+    v.x = random.gauss(mu=0.0, sigma=10.0)
+    v.y = random.gauss(mu=0.0, sigma=10.0)
+    pub.publish(v)
+
+    rospy.sleep(1.0)

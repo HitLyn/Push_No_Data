@@ -11,7 +11,8 @@ from trajectory import Trajectory
 SAVE_PATH = '/home/lyn/HitLyn/Push/imagine_trajectory'
 class MPPI():
     """MPPI algorithm for pushing """
-    def __init__(self, K, T):
+    def __init__(self, K, T, A):
+        self.A = A # action scale
         self.T = T # time steps per sequence
         self.predictor = Predictor(1, 2, 1, self.T)
         self.trajectory = Trajectory()
@@ -19,23 +20,27 @@ class MPPI():
         self.K = K # K sample action sequences
         self.lambd = 1
 
-        self.dim_u = 2
+        self.dim_u = 1 # U is theta
         # action init
         self.U_reset()
 
-        self.u_init = np.zeros([self.dim_u])
+        self.u_init = np.array([0.0])
         self.cost = np.zeros([self.K])
         self.noise = np.random.normal(loc = 0, scale = 1, size = (self.K, self.T, self.dim_u))
+        # self.noise = np.zeros([self.K, self.T, self.dim_u])
 
     def _compute_cost(self, k, step):
-        self.noise[k] = np.random.normal(loc = 0, scale = 1, size = (self.T, self.dim_u))
+        # self.noise[k] = np.concatenate([np.random.normal(loc = 0, scale = 1, size = (self.T, 1)), np.random.rand(self.T, 1)], axis = 1)
+        # self.noise[k] = np.clip(np.random.normal(loc = 0, scale = 2, size = (self.T, 1)), -1.57, 1.57)
+        self.noise[k] = np.clip(np.random.normal(loc = 0, scale = 2, size = (self.T, 1)), -3.14, 3.14)
         eps = self.noise[k]
         self.predictor.catch_up(self.trajectory.get_relative_state(), self.trajectory.get_absolute_state(), self.trajectory.get_obstacle_position(), self.trajectory.get_goal_position(), step) # make the shadow state the same as the actual robot and object state
         for t in range(self.T):
             if t > 0:
-                eps[t] = 0.8*eps[t - 1] + 0.2*eps[t]
+                eps[t] = 0.4*eps[t - 1] + 0.6*eps[t]
             self.noise[k][t] = eps[t]
-            action = copy.copy(self.U[t] + eps[t])
+            theta = self.U[t] + eps[t]
+            action = copy.copy(self.A * np.concatenate([np.sin(theta), np.cos(theta)]))
             cost = self.predictor.predict(action, step) # there will be shadow states in predictor
             self.cost[k] += cost
 
@@ -45,6 +50,9 @@ class MPPI():
 
     def trajectory_clear(self):
         self.trajectory.reset()
+
+    def trajectory_set_goal(self, pos_x, pos_y, theta):
+        self.trajectory.set_goal(pos_x, pos_y, theta)
 
     def trajectory_update_state(self, pose_object, pose_tool):
         self.trajectory.update_state(pose_object, pose_tool)
@@ -58,13 +66,15 @@ class MPPI():
         w = (1/eta) * np.exp((-1/self.lambd) * (self.cost - beta))
 
         self.U += [np.dot(w, self.noise[:, t]) for t in range(self.T)]
-        action = self.U[0]
+        print(self.U)
+        theta = self.U[0]
+        action = copy.copy(self.A * np.concatenate([np.sin(theta), np.cos(theta)]))
 
         return action
 
     def U_reset(self):
         self.U = np.zeros([self.T, self.dim_u])
-        self.U[:, 0] = 1
+        # self.U[:, 1] = 0.8
 
     def get_K(self):
         return self.K

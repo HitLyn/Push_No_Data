@@ -10,11 +10,11 @@ BASE_DIR=(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 
 from model import Model
-WEIGHTS_PATH = os.path.join(os.path.abspath(__file__), 'weights/60_steps')
+WEIGHTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights/60_steps')
 class Predictor():
     def __init__(self, c_o, c_g, c_d, time_steps):
         self.T = time_steps # time_steps to predict
-        self.model = Model(3, 2, 100, 64, 64, 4, load_data = False)
+        self.model = Model(3, 2, 25, 64, 64, 4, load_data = False)
         self.model.load_weights(WEIGHTS_PATH)
         # self.model = model
         self.trajectory_length = self.model.env_time_step
@@ -77,7 +77,8 @@ class Predictor():
     def predict(self, action, step):
         """action: relative to world coordinate"""
         assert action.shape == (2,)
-        action_ = 0.02*np.clip(action, -1, 1)
+        # action_ = 0.03*np.clip(action, -1, 1)
+        action_ = copy.copy(action)
         input = np.zeros([self.input_sequence_len, 7])
 
         # transfer the action to object coordinate
@@ -127,11 +128,12 @@ class Predictor():
         object_rotation_ = object_position[2]
         # fixed_pos = np.array([1.35, 0.65])
         goal_rotation_ = goal_position[2]
+        goal_position_ = goal_position[:2]
         delta_theta = np.abs(object_rotation_ - goal_rotation_)
 
         # cost = c_g*np.squeeze(np.sum(np.square(object_position_ - goal_position[:2]))) + 0.5*c_d*np.squeeze(np.sum(np.square(object_position_ - robot_position)))
         # cost = c_d*np.squeeze(np.sum(np.square(fixed_pos - robot_position)))
-        cost = c_g*np.squeeze(np.sum(np.square(object_position_ - goal_position[:2])))
+        cost = c_g*np.squeeze(np.sum(np.square(object_position - goal_position)))
         return cost
 
     def get_prediction_relative_position(self, state_increment, step):

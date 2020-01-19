@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import rospy
+import geometry_msgs.msg
+import random
+import cv2
+import numpy as np
+
+rospy.init_node("test_gui")
+
+pub = rospy.Publisher("/dynamic_pushing/velocity", geometry_msgs.msg.Vector3, queue_size=10)
+
+window_size = 200
+
+v = geometry_msgs.msg.Vector3()
+
+changed = False
+
+velocity_scaling = 0.2
+
+window_image = np.zeros((window_size,window_size,))
+cv2.imshow("Push", window_image)
+def mouse_callback(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN or (event == cv2.EVENT_MOUSEMOVE and flags == 1):
+        v.y = (x * 1.0 / window_size * 2.0 - 1.0) * velocity_scaling
+        v.x = (y * 1.0 / window_size * 2.0 - 1.0) * velocity_scaling
+        changed = True
+        pub.publish(v)
+    if event == cv2.EVENT_LBUTTONUP and (v.x != 0.0 or v.y != 0.0):
+        v.x = 0.0
+        v.y = 0.0
+        changed = True
+        pub.publish(v)
+cv2.setMouseCallback("Push", mouse_callback)
+
+while True:
+    window_image = np.zeros((window_size,window_size,))
+    cv2.line(window_image, (window_size/2, window_size/2), (int(window_size/2+window_size/2*v.y/velocity_scaling), int(window_size/2+window_size/2*v.x/velocity_scaling)), (255,255,255))
+    cv2.imshow("Push", window_image)
+    cv2.waitKey(1)
+    if not cv2.getWindowProperty("Push", cv2.WND_PROP_VISIBLE):
+        break
+
+print "stopping"
+v.x = 0.0
+v.y = 0.0
+pub.publish(v)
+rospy.sleep(1.0)
