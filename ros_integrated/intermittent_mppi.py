@@ -26,27 +26,41 @@ class MPPI():
 
         self.u_init = np.array([0.0])
         self.cost = np.zeros([self.K])
-        self.noise = np.random.uniform(-3.14, 3.14, size = (self.K, self.T, self.dim_u))
+        # self.noise = np.random.uniform(-3.14, 3.14, size = (self.K, self.T, self.dim_u))
+        self.noise = np.zeros([self.K, self.T, self.dim_u])
         # self.noise = np.zeros([self.K, self.T, self.dim_u])
 
     def _compute_cost(self, k, step):
         # self.noise[k] = np.concatenate([np.random.normal(loc = 0, scale = 1, size = (self.T, 1)), np.random.rand(self.T, 1)], axis = 1)
-        self.noise[k] = np.clip(np.random.normal(loc = 0, scale = 2, size = (self.T, 1)), -1.57, 1.57)
+        self.noise[k] = np.clip(np.random.normal(loc = 0, scale = 1, size = (self.T, 1)), -1.57, 1.57)
         # self.noise[k] = np.clip(np.random.uniform(-np.pi, np.pi, size = (self.T, 1)), -3.14, 3.14)
         eps = self.noise[k]
         self.predictor.catch_up(self.trajectory.get_relative_state(), self.trajectory.get_absolute_state(), self.trajectory.get_obstacle_position(), self.trajectory.get_goal_position(), step) # make the shadow state the same as the actual robot and object state
         for t in range(self.T):
             if t > 0:
-                eps[t] = 0.4*eps[t - 1] + 0.6*eps[t]
+                eps[t] = 0.8*eps[t - 1] + 0.2*eps[t]
             self.noise[k][t] = eps[t]
             theta = self.U[t] + eps[t]
             action = copy.copy(self.A * np.concatenate([np.sin(theta), np.cos(theta)]))
             cost = self.predictor.predict(action, step) # there will be shadow states in predictor
             self.cost[k] += cost
 
+        object_list, action_list = self.predictor.get_sample_object_action_list() # [T, 3], [T, 2]
+        return object_list, action_list
+
     def compute_cost(self, step):
+        action_list = np.zeros([self.K, self.T, 2])
+        object_list = np.zeros([self.K, self.T, 3])
         for k in range(self.K):
-            self._compute_cost(k, step)
+            object_list_, action_list_ = self._compute_cost(k, step)
+            # print(action_list_)
+            action_list[k] = copy.copy(action_list_)
+            object_list[k] = copy.copy(object_list_)
+        # print(action_list)
+
+        return action_list, object_list
+
+
 
     def trajectory_clear(self):
         self.trajectory.reset()
@@ -67,10 +81,14 @@ class MPPI():
 
         self.U += [np.dot(w, self.noise[:, t]) for t in range(self.T)]
         # print(self.U)
-        theta = self.U[0]
-        action = copy.copy(self.A * np.concatenate([np.sin(theta), np.cos(theta)]))
+        theta_list = self.U
+        action_x_list = np.sin(theta_list)
+        action_y_list = np.cos(theta_list)
+        action_list = copy.copy(self.A*np.concatenate([action_x_list, action_y_list], axis = 1))
+        # action = copy.copy(self.A * np.concatenate([np.sin(theta_list[0]), np.cos(theta_list[0])]))
+        action = copy.copy(action_list[0])
 
-        return action
+        return action_list, action
         # return theta
 
     def compute_noise_theta(self):
@@ -87,7 +105,7 @@ class MPPI():
 
     def U_reset(self):
         self.U = np.zeros([self.T, self.dim_u])
-        self.U[:, 0] = 1.57
+        # self.U[:, 1] = 1
         # self.U[:, 1] = 0.8
 
     def get_K(self):

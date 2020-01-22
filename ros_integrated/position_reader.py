@@ -18,7 +18,7 @@ if __name__ == '__main__':
     object_pose = rospy.Publisher('object_pose', geometry_msgs.msg.Pose,queue_size=1)
     tool_pose = rospy.Publisher('tool_pose', geometry_msgs.msg.Pose,queue_size=1)
 
-    rate = rospy.Rate(20.0)
+    rate = rospy.Rate(20)
     robot_data = []
     object_data = []
     object_data_path = '/homeL/cong_pushing/data/trajectory_data/object'
@@ -58,12 +58,12 @@ if __name__ == '__main__':
         object_pose.publish(pose_object)
         tool_pose.publish(pose_tool)
 
-        # robot_data.append(trans_tool)
-        # object_data.append(trans_object + rot_object)
+        robot_data.append(trans_tool)
+        object_data.append(trans_object + rot_object)
 
         rate.sleep()
-    # file_time = str(int(time.time()))
-    # robot_data_np = np.asarray(robot_data)
-    # object_data_np = np.asarray(object_data)
-    # # np.save(os.path.join(robot_data_path, 'robot' + file_time), robot_data_np)
-    # np.save(os.path.join(object_data_path, 'object' + file_time), object_data_np)
+    file_time = str(int(time.time()))
+    robot_data_np = np.asarray(robot_data)
+    object_data_np = np.asarray(object_data)
+    np.save(os.path.join(robot_data_path, 'robot' + file_time), robot_data_np)
+    np.save(os.path.join(object_data_path, 'object' + file_time), object_data_np)

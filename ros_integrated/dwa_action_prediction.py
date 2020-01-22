@@ -11,9 +11,7 @@ import numpy as np
 import sys
 import copy
 
-from predictor import Predictor
-from trajectory import Trajectory
-from mppi import MPPI
+from dwa import DWA
 
 
 STEP_ACTION = 0.03
@@ -59,7 +57,7 @@ def set_goal_marker(x, y, theta):
     return goal_marker
 
 
-def mppi_action_predict(pos_x = 0.3, pos_y = 0.7, theta = 30):
+def dwa_action_predict(pos_x = 0.3, pos_y = 0.7, theta = 30):
     # init
     rospy.init_node('target_action_prediction')
 
@@ -76,11 +74,11 @@ def mppi_action_predict(pos_x = 0.3, pos_y = 0.7, theta = 30):
     pose_object, pose_tool = get_object_tool_pose(listener) #np.array(7), np.array(2)
 
     # mppi initialization
-    mppi = MPPI(30, 2, STEP_ACTION)
+    dwa = DWA(20, 2, STEP_ACTION)
 
-    mppi.trajectory_set_goal(pos_x, pos_y, theta)
-    mppi.U_reset()
-    mppi.trajectory_update_state(pose_object, pose_tool)
+    dwa.trajectory_set_goal(pos_x, pos_y, theta)
+    # dwa.U_reset()
+    dwa.trajectory_update_state(pose_object, pose_tool)
 
     # target action publisher
     target_action_publisher = rospy.Publisher('/dynamic_pushing/target_action', geometry_msgs.msg.Point, queue_size = 1)
@@ -93,9 +91,10 @@ def mppi_action_predict(pos_x = 0.3, pos_y = 0.7, theta = 30):
 
         pose_tool_ = copy.copy(pose_tool)
         time_start = rospy.get_time()
-        mppi.compute_cost(computing_step)
-        target_action = mppi.compute_noise_action()
-        theta = mppi.compute_noise_theta()
+        # dwa.compute_cost(computing_step)
+        target_action = dwa.compute_best_action(computing_step)
+        # target_action = np.array([-0.00736, 0.0291])
+        # theta = dwa.compute_noise_theta()
         ############## target_action_list visualization #############
 
 
@@ -109,8 +108,8 @@ def mppi_action_predict(pos_x = 0.3, pos_y = 0.7, theta = 30):
         time_taken = time_finish - time_start
         print('computing_step: ', computing_step)
         print('target action: ', target_action)
-        print('target theta: ', theta)
-        print('time consumed for mppi_push computation(s): ', time_taken)
+        # print('target theta: ', theta)
+        print('time consumed for dwa_push computation(s): ', time_taken)
 
         target_action_msg.x = target_action[0]
         target_action_msg.y = target_action[1]
@@ -120,15 +119,15 @@ def mppi_action_predict(pos_x = 0.3, pos_y = 0.7, theta = 30):
         real_action = pose_tool - pose_tool_
         # print('real action: ', real_action)
 
-        mppi.trajectory_update_state(pose_object, pose_tool)
-        mppi.trajectory_update_action(real_action)
+        dwa.trajectory_update_state(pose_object, pose_tool)
+        dwa.trajectory_update_action(real_action)
 
-        mppi.U_update() # 2 lines
-        mppi.cost_clear()
+        # dwa.U_update() # 2 lines
+        dwa.cost_clear()
         computing_step += 1
 
 if __name__ == '__main__':
-    mppi_action_predict(sys.argv[1], sys.argv[2], sys.argv[3])
+    dwa_action_predict(sys.argv[1], sys.argv[2], sys.argv[3])
 # def main():
 #     mppi_push(0.75, 0.6, -30)
 #

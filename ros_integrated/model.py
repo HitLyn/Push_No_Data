@@ -287,6 +287,7 @@ class Model():
         """
         # self.model.build(tf.TensorShape([1, None, self.input_feature_size]))
         output = np.squeeze(self.model.predict(state))
+        # print('LSTM processed')
         return output[-1, :]
 
 

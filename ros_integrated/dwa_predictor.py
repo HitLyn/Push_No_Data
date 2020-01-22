@@ -6,15 +6,12 @@ import os
 import sys
 import copy
 
-import rospy
-
-
 BASE_DIR=(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 
 from model import Model
 WEIGHTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights/60_steps')
-class Predictor():
+class DWA_Predictor():
     def __init__(self, c_o, c_g, c_d, time_steps):
         self.T = time_steps # time_steps to predict
         self.model = Model(3, 2, 1000, 64, 64, 4, load_data = False)
@@ -36,7 +33,6 @@ class Predictor():
         self.c_o = c_o # cost coefficient for obstacle distance
         self.c_g = c_g # cost coefficient for goal distance
         self.c_d = c_d # cost coefficient for distance between object and robot
-        self.step = 0
 
 
     def catch_up(self, relative_state, absolute_state, obstacle_position, goal_position, step):
@@ -68,7 +64,6 @@ class Predictor():
         robot_data = copy.copy(absolute_state[-1][3:])
         # how many states it has predicted
         self.count = 0 #reset count
-        # print(self.absolute_state)
 
     def get_relative_action(self, action, step):
         object_pos = copy.copy(self.absolute_state[step + self.count][:3])
@@ -81,7 +76,6 @@ class Predictor():
 
     def predict(self, action, step):
         """action: relative to world coordinate"""
-        self.step = step
         assert action.shape == (2,)
         # action_ = 0.03*np.clip(action, -1, 1)
         action_ = copy.copy(action)
@@ -109,6 +103,7 @@ class Predictor():
         # update self.relative_state and self.count
         self.relative_state[step + self.count + 1][:3] = state_increment[:]
         self.relative_state[step + self.count + 1][3:5] = self.get_prediction_relative_position(state_increment, step)[:]
+        offset = np.abs(self.relative_state[step + self.count + 1][3]) # offset of the gripper from center point of object edge
 
         # update self.absolute_state
         self.absolute_state[step + self.count + 1][:3] = self.get_prediction_absolute_position(state_increment, step)[:]
@@ -119,42 +114,31 @@ class Predictor():
         object_data = copy.copy(self.absolute_state[step + self.count + 1][:3])
         robot_data = copy.copy(self.absolute_state[step + self.count + 1][3:])
 
-
-        # visualization
-
-
         # compute the cost
-        cost = self.cost_fun(object_data, robot_data, self.obstacle_position, self.goal_position)
+        cost = self.cost_fun(object_data, robot_data, self.obstacle_position, self.goal_position, offset)
 
         # update count
         self.count += 1
         return cost
 
 
-    def cost_fun(self, object_position, robot_position, obstacle_position, goal_position):
+    def cost_fun(self, object_position, robot_position, obstacle_position, goal_position, offset):
         c_o = self.c_o
         c_g = self.c_g
         c_d = self.c_d
         object_position_ = object_position[:2]
         object_rotation_ = object_position[2]
-        fixed_pos = np.array([0.65, 0.7])
+        # fixed_pos = np.array([1.35, 0.65])
         goal_rotation_ = goal_position[2]
         goal_position_ = goal_position[:2]
-        delta_theta = np.abs(object_rotation_ - goal_rotation_)
+        # delta_theta = np.abs(object_rotation_ - goal_rotation_)
 
-        # cost = np.squeeze(np.sum(np.square(object_position_ - goal_position_))) + 10*np.squeeze(np.sum(np.square(object_rotation_ - goal_rotation_)))
-        cost = np.squeeze(np.sum(np.square(object_rotation_ - goal_rotation_)))
-
-        # cost = c_g*np.squeeze(np.sum(np.square(robot_position - fixed_pos)))
+        # cost = np.squeeze(np.sum(np.square(object_position_ - goal_position_))) + 10*np.squeeze(np.sum(np.square(object_rotation_ - goal_rotation_))) + np.square(offset)
+        cost = 10*np.squeeze(np.sum(np.square(object_position - goal_position))) + 5*np.square(offset)
+        # cost = c_g*np.squeeze(np.sum(np.square(robot_position - goal_position[:2])))
 
 
         return cost
-
-    def get_sample_object_action_list(self):
-        action_sample_list = copy.copy(self.absolute_state[(self.step + 1):(self.step + 1 + self.T), 3:])
-        object_sample_list = copy.copy(self.absolute_state[(self.step + 1):(self.step + 1 + self.T), :3])
-        # print(action_sample_list)
-        return object_sample_list, action_sample_list
 
     def get_prediction_relative_position(self, state_increment, step):
         """robot position relative to object"""
