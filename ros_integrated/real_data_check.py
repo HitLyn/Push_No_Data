@@ -7,9 +7,9 @@ sys.path.append(BASE_DIR)
 
 from model import Model
 
-WEIGHTS_PATH = '/home/lyn/HitLyn/Push/saved_model_randomized/epoch10/60_steps'
-DATA_PATH = '/home/lyn/HitLyn/Push/new_data_randomized/194'
-SAVED_DATA_PATH = '/home/lyn/HitLyn/Push/generated_trajectory_randomized/194_'
+WEIGHTS_PATH = '/home/lyn/HitLyn/Push/saved_model_randomized/epoch150/60_steps'
+DATA_PATH = '/home/lyn/HitLyn/Push/new_data_randomized/real'
+SAVED_DATA_PATH = '/home/lyn/HitLyn/Push/generated_trajectory_randomized/real'
 
 
 def input_from_world_to_object(state):
@@ -111,16 +111,19 @@ def get_object_state_increment_world_coordinate_original(step, time_sequence, ep
 
 
 def main():
-    model = Model(3, 2, 101, 64, 64, 4, load_data = False)
+
+    test_robot_data_raw = np.load(os.path.join(DATA_PATH, 'robot_data_.npy'))
+    test_object_data_raw = np.load(os.path.join(DATA_PATH, 'object_data_.npy'))
+    # test_robot_data_raw = np.load(os.path.join(DATA_PATH, 'robot_data.npy')).reshape(-1, 3)
+    # test_object_data_raw = np.load(os.path.join(DATA_PATH, 'object_data.npy')).reshape(-1, 7)
+
+    model = Model(3, 2, len(test_robot_data_raw), 64, 64, 4, load_data = False)
     env_step = model.env_time_step
     time_sequence = model.time_steps
     model.model.load_weights(WEIGHTS_PATH)
 
-    test_robot_data_raw = np.load(os.path.join(DATA_PATH, 'robot_data.npy')).reshape(-1, 6)
-    test_object_data_raw = np.load(os.path.join(DATA_PATH, 'object_data.npy')).reshape(-1, 13)
-
     test_object_position = test_object_data_raw[:, :2]
-    test_object_rotation = (np.arccos(test_object_data_raw[:, 3]) * 2).reshape(-1, 1)
+    test_object_rotation = (np.arccos(test_object_data_raw[:, 6]) * 2).reshape(-1, 1)
     test_object_state = np.concatenate((test_object_position, test_object_rotation), axis = 1).reshape(-1, env_step, 3) # [episode_num, 101, 3]
 
     test_robot_state = test_robot_data_raw[:, :2].reshape(-1, env_step, 2) # [episode_num, 101, 2]
@@ -163,7 +166,7 @@ def main():
     # print(predict_trajectory.shape)
     print('finished')
     print('predict trajectory: ', predict_trajectory.shape)
-    np.save(os.path.join(SAVED_DATA_PATH, '194'), predict_trajectory)
+    np.save(os.path.join(SAVED_DATA_PATH, 'real'), predict_trajectory)
     # np.save(os.path.join(SAVED_DATA_PATH, 'original'), original_trajectory)
 
 
