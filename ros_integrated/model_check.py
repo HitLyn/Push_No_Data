@@ -7,9 +7,9 @@ sys.path.append(BASE_DIR)
 
 from model import Model
 
-WEIGHTS_PATH = '/home/lyn/HitLyn/Push/saved_model_randomized/epoch10/60_steps'
-DATA_PATH = '/home/lyn/HitLyn/Push/new_data_randomized/194'
-SAVED_DATA_PATH = '/home/lyn/HitLyn/Push/generated_trajectory_randomized/194_'
+WEIGHTS_PATH = '/home/lyn/HitLyn/Push/saved_model_randomized/epoch150/60_steps'
+DATA_PATH = '/home/lyn/HitLyn/Push/new_data_randomized'
+SAVED_DATA_PATH = '/home/lyn/HitLyn/Push/generated_trajectory_randomized'
 
 
 def input_from_world_to_object(state):
@@ -111,7 +111,7 @@ def get_object_state_increment_world_coordinate_original(step, time_sequence, ep
 
 
 def main():
-    model = Model(3, 2, 101, 64, 64, 4, load_data = False)
+    model = Model(3, 2, 42, 64, 64, 4, load_data = False)
     env_step = model.env_time_step
     time_sequence = model.time_steps
     model.model.load_weights(WEIGHTS_PATH)
@@ -161,9 +161,7 @@ def main():
         print(template.format(episode + 1))
 
     # print(predict_trajectory.shape)
-    print('finished')
-    print('predict trajectory: ', predict_trajectory.shape)
-    np.save(os.path.join(SAVED_DATA_PATH, '194'), predict_trajectory)
+    np.save(os.path.join(SAVED_DATA_PATH, 'pure_test'), predict_trajectory)
     # np.save(os.path.join(SAVED_DATA_PATH, 'original'), original_trajectory)
 
 

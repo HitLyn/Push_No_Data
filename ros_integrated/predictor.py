@@ -17,7 +17,7 @@ WEIGHTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights
 class Predictor():
     def __init__(self, c_o, c_g, c_d, time_steps):
         self.T = time_steps # time_steps to predict
-        self.model = Model(3, 2, 1000, 64, 64, 4, load_data = False)
+        self.model = Model(3, 2, 1000, 64, 64, 3, load_data = False)
         self.model.load_weights(WEIGHTS_PATH)
         # self.model = model
         self.trajectory_length = self.model.env_time_step
@@ -142,8 +142,8 @@ class Predictor():
         goal_position_ = goal_position[:2]
         delta_theta = np.abs(object_rotation_ - goal_rotation_)
 
-        # cost = np.squeeze(np.sum(np.square(object_position_ - goal_position_))) + 10*np.squeeze(np.sum(np.square(object_rotation_ - goal_rotation_)))
-        cost = np.squeeze(np.sum(np.square(object_rotation_ - goal_rotation_)))
+        # cost = np.squeeze(np.sum(np.square(object_position_ - goal_position_))) + np.squeeze(np.sum(np.square(object_rotation_ - goal_rotation_)))
+        cost = np.squeeze(np.sum(np.square(object_position - goal_position)))
 
         # cost = c_g*np.squeeze(np.sum(np.square(robot_position - fixed_pos)))
 

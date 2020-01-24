@@ -41,15 +41,18 @@ class MPPI():
                 eps[t] = 0.8*eps[t - 1] + 0.2*eps[t]
             self.noise[k][t] = eps[t]
             theta = self.U[t] + eps[t]
-            action = copy.copy(self.A * np.concatenate([np.sin(theta), np.cos(theta)]))
+            action = copy.copy(self.A * np.concatenate([np.cos(theta), np.sin(theta)]))
             cost = self.predictor.predict(action, step) # there will be shadow states in predictor
             self.cost[k] += cost
 
         object_list, action_list = self.predictor.get_sample_object_action_list() # [T, 3], [T, 2]
+        # add cost value(color)
+
+        action_list = np.concatenate([action_list, self.cost[k]*np.ones((self.T, 1))], axis = 1)
         return object_list, action_list
 
     def compute_cost(self, step):
-        action_list = np.zeros([self.K, self.T, 2])
+        action_list = np.zeros([self.K, self.T, 3])
         object_list = np.zeros([self.K, self.T, 3])
         for k in range(self.K):
             object_list_, action_list_ = self._compute_cost(k, step)
@@ -57,6 +60,13 @@ class MPPI():
             action_list[k] = copy.copy(action_list_)
             object_list[k] = copy.copy(object_list_)
         # print(action_list)
+
+        # color normalization
+        action_color_list = copy.copy(action_list[:, 0, 2])
+        action_color_list = 1 - (action_color_list - np.min(action_color_list))/(np.max(action_color_list) - np.min(action_color_list))
+        for k in range(self.K):
+            action_list[k, :, 2] = action_color_list[k]
+
 
         return action_list, object_list
 
@@ -82,8 +92,8 @@ class MPPI():
         self.U += [np.dot(w, self.noise[:, t]) for t in range(self.T)]
         # print(self.U)
         theta_list = self.U
-        action_x_list = np.sin(theta_list)
-        action_y_list = np.cos(theta_list)
+        action_x_list = np.cos(theta_list)
+        action_y_list = np.sin(theta_list)
         action_list = copy.copy(self.A*np.concatenate([action_x_list, action_y_list], axis = 1))
         # action = copy.copy(self.A * np.concatenate([np.sin(theta_list[0]), np.cos(theta_list[0])]))
         action = copy.copy(action_list[0])
